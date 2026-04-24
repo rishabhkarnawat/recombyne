@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recombyne Admin Export</title>
+  <style>
+    :root {
+      --bg: #0b0b0b;
+      --panel: #151515;
+      --ink: #f3f3f3;
+      --muted: #9a9a9a;
+      --accent: #00a86b;
+      --line: #2a2a2a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #1a1a1a, var(--bg));
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      padding: 24px;
+    }
+    .card {
+      width: min(560px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.01em; }
+    p { margin: 0 0 20px; color: var(--muted); line-height: 1.5; }
+    label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #101010;
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 10px; margin-top: 14px; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: #fff; font-weight: 600; }
+    .btn-ghost { background: #1f1f1f; color: var(--ink); border: 1px solid var(--line); }
+    .status { margin-top: 14px; min-height: 20px; font-size: 13px; color: var(--muted); }
+    code { background: #111; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Waitlist CSV Export</h1>
+    <p>Use your <code>ADMIN_EXPORT_TOKEN</code> to securely download the current waitlist as CSV.</p>
+
+    <label for="token">Admin Export Token</label>
+    <input id="token" type="password" placeholder="Paste export token" autocomplete="off" />
+
+    <div class="row">
+      <button id="downloadBtn" class="btn-primary">Download CSV</button>
+      <button id="clearBtn" class="btn-ghost" type="button">Clear</button>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const tokenInput = document.getElementById('token');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusEl = document.getElementById('status');
+
+    async function downloadCsv() {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        statusEl.textContent = 'Token is required.';
+        return;
+      }
+
+      statusEl.textContent = 'Preparing CSV...';
+      downloadBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/waitlist/export', {
+          method: 'GET',
+          headers: { 'x-admin-token': token }
+        });
+        if (!res.ok) {
+          statusEl.textContent = res.status === 401 ? 'Invalid token.' : 'Export failed.';
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'waitlist-export.csv';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        statusEl.textContent = 'Download started.';
+      } catch {
+        statusEl.textContent = 'Could not reach export endpoint.';
+      } finally {
+        downloadBtn.disabled = false;
+      }
+    }
+
+    downloadBtn.addEventListener('click', downloadCsv);
+    tokenInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') downloadCsv(); });
+    clearBtn.addEventListener('click', () => { tokenInput.value = ''; statusEl.textContent = ''; tokenInput.focus(); });
+  </script>
+</body>
+</html>
